@@ -30,4 +30,3 @@
 # sh_quote("a>b") = "'a>b'"
 def sh_quote(s):
     return "'" + s.replace("'", "'\\''") + "'"
-

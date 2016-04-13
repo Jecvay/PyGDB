@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# coding=utf-8
 # $Id: GDB.py,v 1.48 2004/06/21 14:03:32 zeller Exp $
 # Simple GDB interface
 
@@ -27,54 +28,74 @@
 # `http://www.askigor.org/',
 # or send a mail to the AskIgor developers <info@askigor.org>.
 
-import sys, os
-import string
-import time
+"""
+    GDB 接口
+    使用 Python 创建 GDB 子进程, 并用管道控制子进程的输入输出
+    通过正则表达式分析输出获取需要的信息
+"""
+
+import os
 import popen2
 import re
-import signal
-import os
-import traceback
-import AlarmHandler
+import string
 
+import signal
+import sys
+
+import AlarmHandler
 from sh_quote import sh_quote
 
 
 class Error(Exception):
     """Base class for exceptions in this module."""
+
     def __init__(self):
         pass
+
 
 class EOFError(Error):
     """EOF during GDB command"""
+
     def __init__(self):
         pass
 
+
 class TimeOutError(Error):
     """TimeOut during GDB command"""
+
     def __init__(self, timeout):
         self.reply = timeout
+
     def __str__(self):
         return "TimeOut after " + `self.reply` + " seconds"
 
+
 class NoSymbolsError(Error):
     """No symbol table found"""
+
     def __init__(self, reply):
         self.reply = reply
+
     def __str__(self):
         return `self.reply`
 
+
 class NotInvokedError(Error):
     """Debuggee was not invoked"""
+
     def __init__(self, output):
         self.output = output
+
     def __str__(self):
         return `self.output`
 
+
 class UnsupportedLanguageError(Error):
     """Language not supported"""
+
     def __init__(self, language):
         self.language = language
+
     def __str__(self):
         return "Language " + `self.output` + " not supported"
 
@@ -88,12 +109,12 @@ class GDB:
 
     fetch_debuggee_pid = 1
 
-    signal_timeout     = 5
-    cleanup_timeout    = 10
+    signal_timeout = 5
+    cleanup_timeout = 10
     invocation_timeout = 10
-    set_break_timeout  = 10
+    set_break_timeout = 10
 
-    def __init__(self, debuggee = ""):
+    def __init__(self, debuggee=""):
         try:
             if self.child is not None:
                 # Already initialized
@@ -154,8 +175,6 @@ class GDB:
         self.__entry_point = None
         self.__entry_breakpoint = None
 
-
-
     def __del__(self):
         try:
             self.cleanup()
@@ -164,7 +183,6 @@ class GDB:
             pass
 
         del self.child
-
 
     # Helpers
 
@@ -217,10 +235,9 @@ class GDB:
 
         return self.__entry_point
 
-
     # Start the debuggee using INVOCATION.  Use this method instead of
     # gdb.question("run"), as it allows arbitrary invocations.
-    def run(self, invocation = None, timeout = None):
+    def run(self, invocation=None, timeout=None):
         # Hack: The overloaded `run' method in `StateGDB' is never
         # invoked, so we use this workaround.
         try:
@@ -237,10 +254,10 @@ class GDB:
             entry_point = self.entry_point()
             self.__entry_breakpoint = self.break_at("*" + entry_point)
             self.commands(self.__entry_breakpoint,
-                          [ "silent",
-                            "info program",
-                            "echo " + self.issued_pid_magic + "\\n",
-                            "cont" ])
+                          ["silent",
+                           "info program",
+                           "echo " + self.issued_pid_magic + "\\n",
+                           "cont"])
 
             # For some reason, `enable delete' won't work :-(
             self.question("enable once " + `self.__entry_breakpoint`)
@@ -260,18 +277,18 @@ class GDB:
             return self.run_indirect(invocation, timeout)
 
     # Resume execution until program ends
-    def resume(self, timeout = None):
+    def resume(self, timeout=None):
         self.question("disable")
         return self.cont(timeout)
 
-    def cont(self, timeout = None):
+    def cont(self, timeout=None):
         return self.question("cont", timeout)
 
     NO_FINISH_PATTERN = \
         re.compile(r".* not meaningful in the outermost frame\.\n")
 
     # Finish current function (including the outermost frame)
-    def finish(self, timeout = None):
+    def finish(self, timeout=None):
         reply = self.question("finish", timeout)
         if self.NO_FINISH_PATTERN.match(reply):
             # GDB doesn't want us to finish `main', so here we go...
@@ -284,21 +301,21 @@ class GDB:
         return self.__initial_messages
 
     # Kill the debugger process
-    def kill_self(self, sig = signal.SIGTERM):
+    def kill_self(self, sig=signal.SIGTERM):
         self.kill(self.child.pid, sig)
 
     # Kill the debuggee and all its descendants
-    def kill_debuggee(self, sig = signal.SIGTERM):
+    def kill_debuggee(self, sig=signal.SIGTERM):
         if self.debuggee_pid is not None:
             self.kill(self.debuggee_pid, sig)
 
     # Kill the process PID
-    def kill(self, pid, sig = signal.SIGTERM):
+    def kill(self, pid, sig=signal.SIGTERM):
         print "Killing", pid
         try:
             os.kill(pid, sig)
         except OSError:
-            pass                        # No such process
+            pass  # No such process
 
     # Load a new debuggee called NAME
     def load_debuggee(self, name):
@@ -329,7 +346,7 @@ class GDB:
     def cleanup(self):
         self.restore_original()
         self.question("kill", self.cleanup_timeout)
-        self.proxy_child  = None
+        self.proxy_child = None
         self.debuggee_pid = None
         self.question("shell rm -f " + sh_quote(self.debuggee_output_file()),
                       self.cleanup_timeout)
@@ -339,8 +356,8 @@ class GDB:
     def _stringless_invocation(self, invocation):
         SQ_STRING_PATTERN = re.compile("(\\\\')|'[^']*'")
         DQ_STRING_PATTERN = re.compile('(\\\\")|"([^"]|\\\\")*"')
-        result = SQ_STRING_PATTERN.sub("'X'",invocation)
-        result = DQ_STRING_PATTERN.sub('"X"',result)
+        result = SQ_STRING_PATTERN.sub("'X'", invocation)
+        result = DQ_STRING_PATTERN.sub('"X"', result)
         return result
 
     def is_simple_invocation(self, invocation):
@@ -351,7 +368,6 @@ class GDB:
                 "|" not in invocation and
                 "&" not in invocation)
 
-
     # Convert a list NUMS of integers to a space-separated string
     def numlist(self, nums):
         list = ""
@@ -360,7 +376,6 @@ class GDB:
                 list = list + " "
             list = list + `num`
         return list
-
 
     # Low-level interface
 
@@ -404,11 +419,10 @@ class GDB:
                     wait_for_issued_pid_magic = 1
 
             if (wait_for_issued_pid_magic and
-                self.__reply_so_far.endswith(self.issued_pid_magic + "\n")):
+                    self.__reply_so_far.endswith(self.issued_pid_magic + "\n")):
                 # Ignore the preceding PID output
                 self.__reply_so_far = ""
                 wait_for_issued_pid_magic = 0
-
 
         # Cut off prompt and final newline
         self.__reply_so_far = self.__reply_so_far[:-len(self.prompt)]
@@ -418,13 +432,12 @@ class GDB:
     def reply_so_far(self):
         return self.__reply_so_far
 
-
     # Mid-level interface
 
     # Send CMDLIST to GDB; return GDB's reply.
     # If TIMEOUT is set, raise a TimeOutError after TIMEOUT seconds.
-    def question(self, cmdlist, timeout = None):
-        #print cmdlist
+    def question(self, cmdlist, timeout=None):
+        # print cmdlist
         if not isinstance(cmdlist, type([])):
             cmdlist = [cmdlist]
 
@@ -449,17 +462,17 @@ class GDB:
             else:
                 whole_reply += "\n" + reply
 
-        #print whole_reply
+        # print whole_reply
         return whole_reply
 
     # Interrupt
-    def interrupt(self, siglist = None):
+    def interrupt(self, siglist=None):
         if self.logging:
             print "=> Interrupt"
             sys.stdout.flush()
 
         if siglist is None:
-            siglist = [ signal.SIGHUP, signal.SIGKILL ]
+            siglist = [signal.SIGHUP, signal.SIGKILL]
 
         reply = ""
         a = None
@@ -482,7 +495,6 @@ class GDB:
                 break
 
         return reply
-
 
     FILE_PATTERN = re.compile(r"File\s+(?P<filename>.*):")
     FUNCTION_PATTERN = re.compile(r".*\s+(?P<name>[^ ]+)[(].*[)];")
@@ -554,10 +566,9 @@ class GDB:
         self.all_functions_with_debug_info_cache = names
         return names
 
-
     # Break at LOCATION (a function, a line number, or a (FILE, LINE) pair);
     # return breakpoint number
-    def break_at(self, location = None):
+    def break_at(self, location=None):
         hit = None
         file = None
         line = None
@@ -596,7 +607,7 @@ class GDB:
 
         arg = ""
 
-        #Ordered: more specific location-descriptions are preferred
+        # Ordered: more specific location-descriptions are preferred
         if address:
             arg = '*' + address
         elif file and line:
@@ -609,15 +620,14 @@ class GDB:
             file_prefix = None
             colon_index = function.find(':')
             if (colon_index >= 0 and
-                colon_index + 1 < len(function) and
-                function[colon_index + 1] != ':'):
+                            colon_index + 1 < len(function) and
+                        function[colon_index + 1] != ':'):
                 file_prefix = function[:colon_index]
                 function = function[colon_index + 1:]
 
             arg = "'" + function + "'"
             if file_prefix is not None:
                 arg = file_prefix + ":" + arg
-
 
         reply = self.question("break " + arg, self.set_break_timeout)
 
@@ -627,10 +637,10 @@ class GDB:
             raise NoSymbolsError, reply
 
         info = reply[bp_index:]
-        bp_nr = string.atoi((string.split(string.replace(info,","," ")))[1])
+        bp_nr = string.atoi((string.split(string.replace(info, ",", " ")))[1])
 
         if hit:
-            self.question("ignore " + `bp_nr` + " " + `hit - 1`,self.set_break_timeout)
+            self.question("ignore " + `bp_nr` + " " + `hit - 1`, self.set_break_timeout)
 
         return bp_nr
 
@@ -643,7 +653,7 @@ class GDB:
         self.question(cmd)
 
     # Return compilation directory of LOCATION
-    def cdir(self, location = None):
+    def cdir(self, location=None):
         if location is not None:
             self.question("list " + location)
         reply = self.question("info source")
@@ -677,7 +687,7 @@ class GDB:
 
     # Fetch byte at NAME
     def peek(self, name):
-        return int(self.question("output /x *((char *)" +  name + ")"), 0)
+        return int(self.question("output /x *((char *)" + name + ")"), 0)
 
     # Store byte VALUE at NAME
     def poke(self, name, value):
@@ -689,9 +699,9 @@ class GDB:
         # This is much preferable than setting a breakpoint with commands,
         # because GDB tends to relocate breakpoints.
         if self.disabled_functions.has_key(name):
-            return                      # Already disabled
+            return  # Already disabled
 
-        RET_OPCODE = 0xc3               # On i386
+        RET_OPCODE = 0xc3  # On i386
         old_opcode = self.peek(name)
         self.poke(name, RET_OPCODE)
         self.disabled_functions[name] = old_opcode
@@ -699,7 +709,7 @@ class GDB:
     # Restore function NAME
     def enable_function(self, name):
         if not self.disabled_functions.has_key(name):
-            return                      # Not disabled
+            return  # Not disabled
 
         old_opcode = disabled_functions[name]
         self.poke(name, old_opcode)
@@ -723,7 +733,7 @@ class GDB:
     def debuggee_output_file(self):
         return self.debuggee() + ".OuT"
 
-    def debuggee_output(self, timeout = None):
+    def debuggee_output(self, timeout=None):
         # If the program is still running, kill it
         self.question("kill")
 
@@ -765,7 +775,7 @@ class GDB:
         # eg. "replace '*' '%@&a' < file" leads to a finalized call at &
 
         proxy_script = \
-"""
+            """
 #!/bin/sh
 
 in_pipe=/tmp/gdb_in$$
@@ -835,11 +845,9 @@ rm -f $in_pipe $out_pipe $err_pipe
                    " 2> " + err_pipe)
         return self.question(run_cmd, timeout)
 
-
     # Interactive mode. Useful for debugging.
     def interactive(self):
         import readline
-        import rlcompleter
 
         readline.parse_and_bind("tab: complete")
 
@@ -847,6 +855,7 @@ rm -f $in_pipe $out_pipe $err_pipe
             pass
 
         self.completions = []
+
         def completer(text, state):
             buf = readline.get_line_buffer()
             if state == 0:

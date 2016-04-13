@@ -1,3 +1,7 @@
-import GDB
+from gdblib.StateGDB import StateGDB
 
-gdb = GDB()
+gdb = StateGDB("x1")
+result = gdb.question("start")
+
+
+print result
