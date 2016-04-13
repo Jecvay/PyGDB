@@ -1,0 +1,7 @@
+# PyGDB 公共配置文件
+
+# 数据库配置, 使用 MySQL 数据库
+database:
+  host: 127.0.0.1
+  port: 3307
+  db: pygdb
