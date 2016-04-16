@@ -16,6 +16,7 @@ Python 调用 GDB 的一个很方便使用的东东
 - 扫描源代码, 获取断点信息, 存入数据库
 - 运行 gdb, 获取所需数据, 存入数据库
 
+
 ### 2. 使用项目数据
 - 读取数据库, 产生基本信息
 - 封装 API, 对数据库数据进行组合, 处理, 并返回
@@ -26,3 +27,8 @@ Python 调用 GDB 的一个很方便使用的东东
 - [pymysql] Python MySQL: https://github.com/PyMySQL/PyMySQL 安装: pip install pymysql
 - [pyYaml] Python Yaml: http://pyyaml.org/ 安装: pip intall pyyaml
 
+
+## 文件说明
+- PyGDB.py 主程序
+- PyGdbDb.py 数据库管理器
+- ConfigManager.py 配置文件管理器

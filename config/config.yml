@@ -3,5 +3,7 @@
 # 数据库配置, 使用 MySQL 数据库
 database:
   host: 127.0.0.1
-  port: 3307
-  db: pygdb
+  port: 3306
+  db: pygdb         # 数据库名字 (不是表名字哦)
+  user: root              # 数据库用户
+  password: Sbdljw1992    # 数据库密码
