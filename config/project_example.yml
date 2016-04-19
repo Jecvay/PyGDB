@@ -1,11 +1,11 @@
 # 注意: 请不要修改本文件. 复制本文件作为新项目的起点.
 
 
-# 项目名称
-project: hahaha
+# 项目名称 (没啥用)
+project: example
 
 # 数据库表前缀, 用于和别的项目区分开来
-table-prefix: hahaha-
+table-prefix: example_
 
 # 源代码列表
 source-codes:
