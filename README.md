@@ -64,3 +64,6 @@ Python 调用 GDB 的一个很方便使用的东东
 1. ProjectPrefix_Function       函数列表
     - fid           函数id
     - funcName      函数名
+1. ProjectPrefix_TestCase       测试用例列表
+    - tid
+    - testStr

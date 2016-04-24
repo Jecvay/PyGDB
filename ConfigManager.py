@@ -20,6 +20,7 @@ class ConfigManager:
         self.pro_table_prefix = self.pro_dict['table-prefix']
         self.pro_source_list = self.pro_dict['source-codes']
         self.pro_test_list = self.pro_dict['test-files']
+        self.pro_gcc_args = self.pro_dict['gcc-args']
 
 if __name__ == '__main__':
     print "测试配置管理器"

@@ -4,6 +4,7 @@ import argparse
 import PyGdbUtil
 from PyGdbDb import PyGdbDb
 from ConfigManager import ConfigManager
+from gdblib import StateGDB
 
 
 class PyGDB:
@@ -78,18 +79,61 @@ if __name__ == "__main__":
         exist_project = not pg.db.new_project()
         if exist_project:
             print '已经处理过该程序, 任务中止'
-            exit(0)
+            # exit(0)
 
         # 3. 对所有的源代码进行编译, 检查每一个文件是否编译成功
         all_compile_ok = True
+        failed_list = []
         for source_file in pg.conf.pro_source_list:
-            PyGdbUtil.compile(source_file, '-O0 -g -o ' + source_file + '.p')
-            if not PyGdbUtil.exist_file(source_file + '.p'):
-                PyGdbUtil.log(1, '失败: ' + source_file)
+            break       # 调试开关 -> 跳过编译部分
+            if PyGdbUtil.compile(source_file, pg.conf.pro_gcc_args + ' -O0 -g -o ' + source_file + '.p'):
+                failed_list.append(source_file)
                 all_compile_ok = False
 
         if not all_compile_ok:
+            print "--------------- 编译完毕, 失败列表如下------------"
+            for line in failed_list:
+                print line
             PyGdbUtil.log(2, '没有完全编译成功, 任务中止')
+        else:
+            print '恭喜! 所有程序编译成功!'
+
+        # 4. 测试用例写入数据库
+        for file_path in pg.conf.pro_test_list:
+            fp = open(file_path, 'r')
+            test_str = ""
+            for line in fp:
+                test_str += line
+            fp.close()
+            pg.db.insert_test_case(test_str)
+        pg.db.commit()
+
+        # 5. 代码断点写入数据库
+        pid = 0
+        for file_path in pg.conf.pro_source_list:
+            gdb = StateGDB.StateGDB(file_path + '.p')
+            pid += 1
+            fp = open(file_path, 'r')
+            line_cnt = 0
+            for line in fp:
+                line_cnt += 1
+                if 0 < line.find("return") or 0 < line.find("exit("):
+                    output = gdb.question("b " + '%d' % line_cnt)
+            fp.close()
+            output = gdb.question("info b")
+            pg.db.info_breakpoint_handler(pid, output)
+            pg.db.commit()
+            # print output
+            gdb.cleanup()
+            # PyGdbDb.insert_breakpoint(pid, line_number, func_name)
+
+
+        # 6. 调试程序
+
+
+
+        # 结束, 释放资源
+        pg.release_project()
 
 
 

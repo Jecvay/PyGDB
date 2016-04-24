@@ -34,6 +34,8 @@
     通过正则表达式分析输出获取需要的信息
 """
 
+
+
 import os
 import popen2
 import re

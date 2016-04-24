@@ -6,6 +6,8 @@
 
 import re
 import GDB
+import string
+from TimedMessage import TimedMessage
 
 # GDB interface with special state fetching capability
 class StateGDB(GDB.GDB):

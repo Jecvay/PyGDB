@@ -50,8 +50,8 @@ class AlarmHandler:
     def __init__(self, seconds, handler = default_handler):
         self.saved_handler = None
         self.saved_seconds = 0
-	self.start = time.time()
-        
+        self.start = time.time()
+
         if seconds:
             # print "TimeOut in", `seconds` + "s"
             self.saved_handler = signal.signal(signal.SIGALRM, handler)

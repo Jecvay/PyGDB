@@ -1,6 +1,7 @@
 # coding=utf-8
 
-import os
+import subprocess
+import shlex
 
 """
     公用方法
@@ -31,9 +32,7 @@ def log(level, msg, limit_level=log_limit_level):
 """
 def compile(file_path, compile_args):
     log(0, '正在编译: ' + file_path)
-
-"""
-    判断文件是否存在
-"""
-def exist_file(file_path):
-    return os.path.exists(file_path)
+    cmd_string = "gcc " + file_path + " " + compile_args
+    cmd_list = shlex.split(cmd_string)
+    sp = subprocess.Popen(cmd_list, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    return sp.wait()

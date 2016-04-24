@@ -52,10 +52,32 @@ class PyGdbDb:
             self.create_table(self.table_prefix + "FrameVariable(varName CHAR, varValue TEXT, varSize INT)")
             self.create_table(self.table_prefix + "FuncAdjacencyList(parFid INT, fid INT)")
             self.create_table(self.table_prefix + "Function(fid INT, funcName CHAR)")
+            self.create_table(self.table_prefix + "TestCase(tid INT AUTO_INCREMENT primary key, testStr TEXT)")
+            self.commit()
             return True
         else:
             return False
 
+    # 插入测试用例
+    def insert_test_case(self, test_str):
+        self.execute("insert into " + self.table_prefix + "TestCase(testStr) VALUES('%s')" % test_str)
+
+    # 插入程序断点
+    def insert_breakpoint(self, pid, line_number, func_name):
+        return # 测试
+        PyGdbUtil.log(0, str(pid) + " " + str(line_number) + " " + str(func_name))
+        self.execute("insert into " + self.table_prefix +
+                     "BreakPoint(pid, lineNumber, funcName) VALUES (%s, %s, '%s')" % (pid, line_number, func_name))
+
+    # 数据库中插入断点
+    def info_breakpoint_handler(self, pid, gdb_info_breakpoint):
+        ss = gdb_info_breakpoint.split("\n")
+        for s in ss:
+            if 0 < s.find("breakpoint     keep y"):
+                s2 = s.split()
+                s3 = s2[8].split(":")
+                self.insert_breakpoint(pid, s3[1], s2[6])
+                # self.execute("insert into breakpoint values (%s, '%s', '%s', %s)" % (s2[0], s2[6], s3[0], s3[1]))
 
     # 检查是否存在一张表
     def exist_table(self, table_name):
@@ -77,6 +99,10 @@ class PyGdbDb:
     # 执行 sql 语句
     def execute(self, sql_cmd):
         self.cursor.execute(sql_cmd)
+
+    # commit 操作
+    def commit(self):
+        self.connection.commit()
 
 
 if __name__ == '__main__':
