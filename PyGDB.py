@@ -100,6 +100,7 @@ if __name__ == "__main__":
 
         # 4. 测试用例写入数据库
         for file_path in pg.conf.pro_test_list:
+            break       # 调试开关 -> 跳过插入测试用例部分
             fp = open(file_path, 'r')
             test_str = ""
             for line in fp:
@@ -126,10 +127,48 @@ if __name__ == "__main__":
             # print output
             gdb.cleanup()
             # PyGdbDb.insert_breakpoint(pid, line_number, func_name)
+            # 以下一行为测试用, 减少测试程序.
+            break
 
 
-        # 6. 调试程序
+        # 6. 调试程序   外层循环: 程序; 内层循环: 测试样例
 
+        test_cnt = pg.db.get_test_case_cnt()
+        program_cnt = len(pg.conf.pro_source_list)
+        PyGdbUtil.log(0, "--------------------------")
+        PyGdbUtil.log(0, "    GDB 调试开始")
+        PyGdbUtil.log(0, "测试样例总数: " + str(test_cnt))
+        PyGdbUtil.log(0, "程序总数: " + str(program_cnt))
+        PyGdbUtil.log(0, "循环总数: " + str(test_cnt * program_cnt))
+        PyGdbUtil.log(0, "--------------------------")
+
+        for file_path in pg.conf.pro_source_list:
+            for tid in xrange(1, test_cnt + 1):
+                # 打开程序
+                gdb = StateGDB.StateGDB(file_path + '.p')
+
+                # 插入断点
+                breakpoint_list = pg.db.get_breakpoint_list(pid)
+                for bp in breakpoint_list:
+                    gdb.question("b " + str(bp))
+
+                print gdb.question("info b")
+
+                x = pg.db.get_test_case_by_tid(1)
+                output = gdb.question(["run \n" + x + "\n"])
+                print "output: " + output
+
+                while output.find("\nBreakpoint ") >= 0:
+                    state = gdb.get_breakpoint_info()
+                    s = output
+                    #s2 = s[12:s.find(",", 12)]
+                    print "GDB输出: " + s + "\n-----------\n"
+                    print "断点信息: " + str(state) + "\n=========\n\n"
+                    output = gdb.question("c")
+                #print x
+                gdb.cleanup()
+                break
+            break
 
 
         # 结束, 释放资源

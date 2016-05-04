@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
-  <component name="DataSourceManagerImpl" format="xml" hash="480643508">
+  <component name="DataSourceManagerImpl" format="xml" hash="794291656">
     <data-source source="LOCAL" name="MySQL - pygdb@localhost" uuid="b89d9e47-b246-4b0e-809f-273c2774139e">
       <driver-ref>mysql</driver-ref>
       <synchronize>true</synchronize>

@@ -204,7 +204,7 @@ class GDB:
         if self.logging:
             print ">> " + cmd
             sys.stdout.flush()
-        print cmd
+        # print cmd
         return popen2.Popen3(cmd)
 
     # Return the name of the debuggee.

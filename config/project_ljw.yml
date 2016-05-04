@@ -1,0 +1,16 @@
+# 项目名称 (没啥用)
+project: ljw
+
+# 数据库表前缀, 用于和别的项目区分开来
+table-prefix: ljw_
+
+# GCC 编译参数, 这里 -lm 是添加数学库
+gcc-args: -lm
+
+# 源代码列表
+source-codes:
+  - '/home/jecvay/fantastic/c/ljw/ljw.c'
+
+# 测试样例列表
+test-files:
+  - '/home/jecvay/fantastic/c/ljw/test.in'

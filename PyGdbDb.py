@@ -96,13 +96,69 @@ class PyGdbDb:
             # print e
             PyGdbUtil.log(2, "创建表" + table_list + "失败! 请检查数据表前缀是否有非法字符.")
 
+    # 获取测试样例
+    def get_test_case_by_tid(self, tid):
+        self.execute("SELECT testStr FROM " + self.table_prefix + "TestCase WHERE tid='%s'" % tid)
+        return self.cursor.fetchone()[0]
+
+    # 获取测试样例总数
+    def get_test_case_cnt(self):
+        self.execute('SELECT max(tid) FROM ' + self.table_prefix + 'TestCase')
+        return int(self.cursor.fetchone()[0])
+
+    # 获取指定程序的断点列表
+    def get_breakpoint_list(self, pid):
+        self.execute('SELECT lineNumber FROM ' + self.table_prefix + 'BreakPoint WHERE pid="%s"' % pid)
+        all = self.cursor.fetchall()
+        return [x[0] for x in all]
+
     # 执行 sql 语句
     def execute(self, sql_cmd):
-        self.cursor.execute(sql_cmd)
+        return self.cursor.execute(sql_cmd)
 
     # commit 操作
     def commit(self):
         self.connection.commit()
+
+    """
+        ==================================================================
+            下方是 RestFul API 直接需要用到的 api
+            我擦, 这个好像应该放到另一个工程里面 - -#
+        ==================================================================
+    """
+
+    # getWorstStackSize(String program String  t1){} input1+program  getWorstStackSize(){}
+    # tid + pid --> Worst Stack Size
+    def api_worst_stack_size(self, pid, tid):
+        pass
+
+    def api_max_stack_size(self, pid, tid, fid):
+        pass
+
+    # 给出正确程序的pid 以及比较程序的 pid, 以及测试用例集合(tid列表), 返回程序执行成功与否的TF表
+    def api_result(self, correct_pid, test_pid, tid_list):
+        pass
+
+    # 返回程序断点列表
+    def api_breakpoint_list(self, pid, tid):
+        pass
+
+    # 断点处函数栈列表
+    def api_breakpoint_func_list(self, pid, breakpoint):
+        pass
+
+    # 断点处栈帧信息
+    def api_breakpoint_frame_info(self, pid, breakpoint):
+        pass
+
+    # 返回函数调用图的邻接表
+    def api_function_graph(self, pid, tid):
+        pass
+
+    # 返回函数列表
+    def api_function_list(self, pid):
+        pass
+
 
 
 if __name__ == '__main__':

@@ -158,6 +158,111 @@ class StateGDB(GDB.GDB):
         t.outcome = `len(vars.keys())` + " variables"
         return vars
 
+    """
+        By Jecvay
+        必须停在断点的时候调用本方法
+
+        断点需要获取的信息:
+            - 当前栈大小
+            - 函数调用序列
+            - 栈帧信息
+                - 变量 名/值
+                - 大小信息
+
+        计算栈帧通常使用的方法: GCC 编译的时候加上 -O0 参数使得编译器关闭优化, EBP(RBP)寄存器能
+        表示出栈帧的栈底指针, 然后使用 $EBP - $ESP 获取栈帧大小.
+
+        但是栈帧大小不包括函数调用的时候实参占用的空间.
+
+        GDB 刚好为我们保存了 ESP 的上一个位置的值. 因此使用上一个位置的值减去当前位置的值似乎可以得
+        到包含了实参占用空间与栈帧占用空间的和(我称为扩展栈帧大小). 但是这要求CPU架构没有对内存地址进
+        行随机化处理.
+
+        而 i686 架构可以避免 CPU 启用内存地址随机化的特性. 可以使用如下命令使用 i686 架构启动 GDB
+            setarch i686 -R gdb ProgramName
+    """
+    def get_breakpoint_info(self):
+        info = {
+            "stack_size": None,
+            "func_list": "",
+            "frame": {
+                "frame_size": -1,
+                "var_list": [],
+                "var_value": [],
+                "var_size": []
+            }
+        }
+
+        # 获取函数栈列表
+        info['func_list'] = self.question("backtrace")
+
+        # 获取当前栈帧大小
+        info['frame']['frame_size'] = self.__frame_expend_size()
+
+        # 获取当前变量列表以及变量值
+        output = (self.question("info args") + self.question('info local')).split('\n')
+        for line in output:
+            var_split = line.split(' ')
+            var_name = var_split[0]
+            if var_name == '':
+                continue
+            var_value = ''.join(var_split[2:])
+
+            info['frame']['var_list'].append(var_name)
+            info['frame']['var_value'].append(var_value)
+
+        # 获取变量大小
+        for var in info['frame']['var_list']:
+            output = self.question('p sizeof(' + var + ')').split(' ')[2]
+            info['frame']['var_size'] = int(output)
+
+        # 获取栈大小
+        reply = "#0"
+        while string.find(reply, "#") != -1:
+            reply = self.question("down")
+
+        reply = "#0"
+        stack_size = 0
+        while string.find(reply, "#") != -1:
+            stack_size += self.__frame_expend_size()
+            reply = self.question("up")
+
+        info['stack_size'] = stack_size
+
+        return info
+
+    """
+        By Jecvay
+        私有方法: 计算当前帧的 扩展栈帧 大小
+    """
+    def __frame_expend_size(self):
+        # 获取栈帧信息
+
+        frame_info = str(self.question('i f'))
+        frame_size = str(self.question("p $ebp-$esp")).split(" ")[2]  # 寄存器 EBP - ESP 得到栈帧大小(不含实参)
+        arg_list = self.question("info args")
+
+        # 获取上一个 $sp 值
+        PRE_SP_MODEL = "Previous frame's sp is "
+        pre_sp_str_offset_start = frame_info.find(PRE_SP_MODEL) + len(PRE_SP_MODEL)
+        pre_sp_str_offset_end = frame_info.find('\n', pre_sp_str_offset_start)
+        pre_sp_str = frame_info[pre_sp_str_offset_start:pre_sp_str_offset_end]
+        pre_sp_int = int(pre_sp_str, 16)
+
+        # 获取当前 $sp 值
+        sp_str = ""
+        if len(pre_sp_str) > 10:  # 64位机
+            sp_str = str(self.question("p/x $rsp")).split(" ")[2]
+        else:
+            print "致命错误: 32位机器上运行"
+            exit()
+        sp_int = int(sp_str, 16)
+
+        # 计算扩展栈帧大小
+        frame_expend_size = pre_sp_int - sp_int
+
+        return frame_expend_size
+
     # Return (opaque) list of deltas
     def deltas(self, state_1, state_2):
         deltas = []
