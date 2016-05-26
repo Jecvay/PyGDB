@@ -38,4 +38,8 @@ source-codes:
 
 # 测试样例列表
 test-files:
-  - '/home/jecvay/fantastic/c/totinfo/v23/12new2'
+  - '/home/jecvay/fantastic/c/totinfo/testcase/12new1'
+  - '/home/jecvay/fantastic/c/totinfo/testcase/12new2'
+  - '/home/jecvay/fantastic/c/totinfo/testcase/12new3'
+  - '/home/jecvay/fantastic/c/totinfo/testcase/12new4'
+  - '/home/jecvay/fantastic/c/totinfo/testcase/12new5'

@@ -13,4 +13,5 @@ source-codes:
 
 # 测试样例列表
 test-files:
+  - '/home/jecvay/fantastic/c/ljw/test3.in'
   - '/home/jecvay/fantastic/c/ljw/test.in'

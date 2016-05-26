@@ -214,7 +214,7 @@ class StateGDB(GDB.GDB):
         # 获取变量大小
         for var in info['frame']['var_list']:
             output = self.question('p sizeof(' + var + ')').split(' ')[2]
-            info['frame']['var_size'] = int(output)
+            info['frame']['var_size'].append(int(output))
 
         # 获取栈大小
         reply = "#0"

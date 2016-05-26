@@ -6,6 +6,8 @@ from PyGdbDb import PyGdbDb
 from ConfigManager import ConfigManager
 from gdblib import StateGDB
 
+import re
+
 
 class PyGDB:
     def __init__(self, project_config_filename):
@@ -78,6 +80,8 @@ if __name__ == "__main__":
         # 2. 检查是否已经生成过 -> 退出
         exist_project = not pg.db.new_project()
         if exist_project:
+            pg.db.clear_project()
+            pg.db.new_project()
             print '已经处理过该程序, 任务中止'
             # exit(0)
 
@@ -100,7 +104,7 @@ if __name__ == "__main__":
 
         # 4. 测试用例写入数据库
         for file_path in pg.conf.pro_test_list:
-            break       # 调试开关 -> 跳过插入测试用例部分
+            # break       # 调试开关 -> 跳过插入测试用例部分
             fp = open(file_path, 'r')
             test_str = ""
             for line in fp:
@@ -109,7 +113,7 @@ if __name__ == "__main__":
             pg.db.insert_test_case(test_str)
         pg.db.commit()
 
-        # 5. 代码断点写入数据库
+        # 5. 代码断点写入数据库 & 获取断点函数列表
         pid = 0
         for file_path in pg.conf.pro_source_list:
             gdb = StateGDB.StateGDB(file_path + '.p')
@@ -122,7 +126,12 @@ if __name__ == "__main__":
                     output = gdb.question("b " + '%d' % line_cnt)
             fp.close()
             output = gdb.question("info b")
+
+            function_list = pg.db.get_function_list(output)
+            pg.db.insert_function_list(function_list)
+
             pg.db.info_breakpoint_handler(pid, output)
+
             pg.db.commit()
             # print output
             gdb.cleanup()
@@ -142,7 +151,10 @@ if __name__ == "__main__":
         PyGdbUtil.log(0, "循环总数: " + str(test_cnt * program_cnt))
         PyGdbUtil.log(0, "--------------------------")
 
+        pid = 0
+        func_name_pattern = re.compile(r' ([^ ]*) \(')      # 用于找出函数调用关系
         for file_path in pg.conf.pro_source_list:
+            pid += 1
             for tid in xrange(1, test_cnt + 1):
                 # 打开程序
                 gdb = StateGDB.StateGDB(file_path + '.p')
@@ -158,17 +170,40 @@ if __name__ == "__main__":
                 output = gdb.question(["run \n" + x + "\n"])
                 print "output: " + output
 
+                # 处理每一个断点!!!
+                max_stack_size = -1
                 while output.find("\nBreakpoint ") >= 0:
+                    bid = int(output[output.find("\nBreakpoint ") + len('\nBreakpoint '):].split(' ')[0][:-1])
                     state = gdb.get_breakpoint_info()
+                    bid += 1
                     s = output
-                    #s2 = s[12:s.find(",", 12)]
-                    print "GDB输出: " + s + "\n-----------\n"
+                    # print "GDB输出: " + s + "\n-----------\n"
                     print "断点信息: " + str(state) + "\n=========\n\n"
-                    output = gdb.question("c")
-                #print x
+
+                    # 信息存入数据库
+                    for i in xrange(0, len(state['frame']['var_list'])):
+                        var_name = state['frame']['var_list'][i]
+                        var_value = state['frame']['var_value'][i]
+                        var_size = state['frame']['var_size'][i]
+                        pg.db.insert_frame_var(bid, var_name, var_value, var_size)
+
+                    fid = int(pg.db.get_fid_by_bid(bid))
+                    pg.db.insert_frame_stack_size(pid, tid, fid, state['stack_size'])
+                    max_stack_size = max(max_stack_size, state['stack_size'])
+                    func_list_info = gdb.question('info stack')
+                    func_list = func_name_pattern.findall(func_list_info)
+                    pg.db.insert_edge(pid, tid, func_list[1], func_list[1])
+
+                    try:
+                        output = gdb.question("c", timeout=1)       # 超时: 给每个测试用例的最长计算时间
+                    except Exception as e:
+                        PyGdbUtil.log(1, "等待程序超时, 结束调试")
+                        break
+                pg.db.insert_max_stack_size(pid, tid, max_stack_size)
+                pg.db.commit()
                 gdb.cleanup()
-                break
-            break
+
+
 
 
         # 结束, 释放资源

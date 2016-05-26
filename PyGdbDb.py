@@ -46,13 +46,31 @@ class PyGdbDb:
 
         # 创建数据库表
         if not exist_project:
-            self.create_table(self.table_prefix + "BreakPoint(pid INT, lineNumber INT, funcName TEXT, funcList TEXT)")
+            self.create_table(self.table_prefix + "BreakPoint(bid INT AUTO_INCREMENT primary key, pid INT, lineNumber INT, funcName TEXT, funcList TEXT)")
             self.create_table(self.table_prefix + "PStackSize(pid INT, tid INT, stackSize INT, pass TINYINT)")
             self.create_table(self.table_prefix + "FStackSize(pid INT, tid INT, fid INT, stackSize INT)")
-            self.create_table(self.table_prefix + "FrameVariable(varName CHAR, varValue TEXT, varSize INT)")
-            self.create_table(self.table_prefix + "FuncAdjacencyList(parFid INT, fid INT)")
-            self.create_table(self.table_prefix + "Function(fid INT, funcName CHAR)")
+            self.create_table(self.table_prefix + "FrameVariable(bid INT, varName CHAR, varValue TEXT, varSize INT)")
+            self.create_table(self.table_prefix + "FuncAdjacencyList(pid INT, tid INT, parFid INT, fid INT, cnt INT)")
+            self.create_table(self.table_prefix + "Function(fid INT, funcName CHAR(30))")
             self.create_table(self.table_prefix + "TestCase(tid INT AUTO_INCREMENT primary key, testStr TEXT)")
+            self.commit()
+            return True
+        else:
+            return False
+
+    def clear_project(self):
+        if not self.table_prefix:
+            PyGdbUtil.log(2, '未指定数据库前缀')
+        exist_project = self.exist_table(self.table_prefix + 'BreakPoint')
+
+        if exist_project:
+            self.drop_table(self.table_prefix + "BreakPoint")
+            self.drop_table(self.table_prefix + "PStackSize")
+            self.drop_table(self.table_prefix + "FStackSize")
+            self.drop_table(self.table_prefix + "FrameVariable")
+            self.drop_table(self.table_prefix + "FuncAdjacencyList")
+            self.drop_table(self.table_prefix + "Function")
+            self.drop_table(self.table_prefix + "TestCase")
             self.commit()
             return True
         else:
@@ -64,10 +82,51 @@ class PyGdbDb:
 
     # 插入程序断点
     def insert_breakpoint(self, pid, line_number, func_name):
-        return # 测试
+        # return # 测试
         PyGdbUtil.log(0, str(pid) + " " + str(line_number) + " " + str(func_name))
         self.execute("insert into " + self.table_prefix +
                      "BreakPoint(pid, lineNumber, funcName) VALUES (%s, %s, '%s')" % (pid, line_number, func_name))
+
+    # 插入函数
+    def inset_function(self, fid, func_name):
+        self.execute('insert into ' + self.table_prefix +
+                     'Function(fid, funcName) VALUES (%s, "%s")' % (fid, func_name))
+
+    # 插入一个栈帧变量信息
+    def insert_frame_var(self, bid, var_name, var_value, var_size):
+        self.execute('insert into ' + self.table_prefix +
+                     'FrameVariable(bid, varName, varValue, varSize) ' +
+                     'VALUES (%s, "%s", "%s", %s)' % (bid, var_name, var_value, var_size))
+
+    # 插入栈帧大小
+    def insert_frame_stack_size(self, pid, tid, fid, size):
+        self.execute('insert into ' + self.table_prefix +
+                     'FStackSize(pid, tid, fid, stackSize) VALUES (%s, %s, %s, %s)' %
+                     (pid, tid, fid, size))
+
+    # 插入最大栈帧大小
+    def insert_max_stack_size(self, pid, tid, size):
+        self.execute('insert into ' + self.table_prefix +
+                     'PStackSize(pid, tid, stackSize) VALUES (%s, %s, %s)' %(pid, tid, size))
+
+    # 根据函数名称获取 fid
+    def get_function_fid_by_name(self, func_name):
+        self.execute('select fid from ' + self.table_prefix + 'Function where funcName=' + func_name)
+        fetch_one = self.cursor.fetchone()
+        print "获取函数id:　" + fetch_one
+        return fetch_one[0]
+
+    # 根据bid获取fid
+    def get_fid_by_bid(self, bid):
+        self.execute('select funcName from ' + self.table_prefix + 'BreakPoint where bid=' + str(bid))
+        fetch_one = self.cursor.fetchone()
+        fid = self.get_fid_by_func_name(str(fetch_one[0]))
+        return fid
+
+    # 根据函数名获取 fid
+    def get_fid_by_func_name(self, func_name):
+        self.execute('select fid from ' + self.table_prefix + 'Function where funcName="%s"' % (str(func_name)))
+        return self.cursor.fetchone()[0]
 
     # 数据库中插入断点
     def info_breakpoint_handler(self, pid, gdb_info_breakpoint):
@@ -77,7 +136,44 @@ class PyGdbDb:
                 s2 = s.split()
                 s3 = s2[8].split(":")
                 self.insert_breakpoint(pid, s3[1], s2[6])
-                # self.execute("insert into breakpoint values (%s, '%s', '%s', %s)" % (s2[0], s2[6], s3[0], s3[1]))
+
+    # 添加有向边 a-->b
+    def insert_edge(self, pid, tid, func_name_a, func_name_b):
+        fid_a = self.get_fid_by_func_name(func_name_a)
+        fid_b = self.get_fid_by_func_name(func_name_b)
+
+        try:
+            self.execute('select cnt from ' + self.table_prefix +
+                         'FuncAdjacencyList where pid=%s and tid=%s and parFid=%s and fid=%s' %
+                     (pid, tid, fid_a, fid_b))
+            cnt = int(self.cursor.fetchone()[0]) + 1
+            self.execute('update ' + self.table_prefix +
+                         'FuncAdjacencyList set cnt=%s where pid=%s and tid=%s and parFid=%s and fid=%s' %
+                         (pid, tid, cnt, fid_a, fid_b))
+        except Exception:
+            cnt = 1
+            self.execute('insert into ' + self.table_prefix +
+                         'FuncAdjacencyList(pid, tid, parFid, fid, cnt) VALUES (%s, %s, %s, %s, %s)' %
+                         (pid, tid, fid_a, fid_b, cnt))
+
+
+    # 根据 gdb(info b) 的信息获取函数列表
+    def get_function_list(self, break_info):
+        func_list = []
+        string_list = break_info.split('\n')[1:]
+        for line in string_list:
+            word = line.split()
+            if len(word) >= 6:
+                func_list.append(word[6])
+        return func_list
+
+    # 将给出的函数列表插入数据库中
+    def insert_function_list(self, func_list):
+        fid = 0
+        func_list = list(set(func_list))    # 去重
+        for func in func_list:
+            fid += 1
+            self.inset_function(fid, func)
 
     # 检查是否存在一张表
     def exist_table(self, table_name):
@@ -88,13 +184,23 @@ class PyGdbDb:
             return False
 
     # 创建表
-    def create_table(self, table_list):
+    def create_table(self, table_name):
         try:
-            PyGdbUtil.log(0, "创建表" + table_list)
-            self.execute("create table if not exists " + table_list)
+            PyGdbUtil.log(0, "创建表" + table_name)
+            self.execute("create table if not exists " + table_name)
         except Exception as e:
             # print e
-            PyGdbUtil.log(2, "创建表" + table_list + "失败! 请检查数据表前缀是否有非法字符.")
+            PyGdbUtil.log(2, "创建表" + table_name + "失败! 请检查数据表前缀是否有非法字符.")
+
+    # 删除表
+    def drop_table(self, table_name):
+        try:
+            PyGdbUtil.log(0, "删除表" + table_name)
+            self.execute('drop table if exists ' + table_name)
+        except Exception as e:
+            print e
+            PyGdbUtil.log(2, '删除表失败!')
+
 
     # 获取测试样例
     def get_test_case_by_tid(self, tid):
